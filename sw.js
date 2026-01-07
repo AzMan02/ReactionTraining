@@ -1,12 +1,17 @@
-javascript
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open('v1').then((cache) => cache.addAll(['index.html']))
+const CACHE_NAME = 'compass-pro-v1';
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './manifest.json'
+];
+
+// 앱 설치 시 파일 저장
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    })
   );
 });
 
-self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((response) => response || fetch(e.request))
-  );
-});
+// 인터넷 연결 여부와 상관없이 저장된 파일 호출
