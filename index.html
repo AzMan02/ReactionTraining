@@ -14,68 +14,47 @@
             width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;
             overflow: hidden; touch-action: none;
         }
-
         #compass-container {
-            position: relative;
-            width: min(92vw, 92vh); height: min(92vw, 92vh);
+            position: relative; width: min(92vw, 92vh); height: min(92vw, 92vh);
             border: 5px solid rgba(255,255,255,0.25); border-radius: 50%;
-            background: rgba(0,0,0,0.2);
-            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center;
             cursor: pointer;
         }
-
-        /* [가시성 강화] 총 운동 시간: 외곽선과 그림자 추가 */
         #total-timer {
-            position: absolute;
-            font-size: min(55vw, 55vh);
-            font-weight: 900;
-            /* 투명도를 약간 높이고 외곽선 효과 추가 */
-            color: rgba(255, 255, 255, 0.12); 
-            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.05);
-            filter: drop-shadow(0 0 15px rgba(0,0,0,0.2));
-            z-index: 0;
-            pointer-events: none;
-            letter-spacing: -5px;
-            line-height: 1;
-            font-variant-numeric: tabular-nums;
+            position: absolute; font-size: min(55vw, 55vh); font-weight: 900;
+            color: rgba(255, 255, 255, 0.12); -webkit-text-stroke: 1px rgba(255, 255, 255, 0.05);
+            filter: drop-shadow(0 0 15px rgba(0,0,0,0.2)); z-index: 0; pointer-events: none;
+            letter-spacing: -5px; line-height: 1; font-variant-numeric: tabular-nums;
         }
-
         #inner-info {
             position: absolute; bottom: 12%; width: 85%; text-align: center; z-index: 1; 
             pointer-events: none; transition: opacity 0.3s ease;
         }
-
         #status-msg { 
             font-size: clamp(1.2rem, 6vw, 2.2rem); font-weight: 900; margin-bottom: 5px; 
             color: #ffffff; text-shadow: 2px 2px 10px rgba(0,0,0,0.9);
         }
-        
         #setting-display { 
             font-size: clamp(0.9rem, 4vw, 1.5rem); color: #ffffff; 
             font-weight: bold; letter-spacing: 1px; text-shadow: 1px 1px 5px rgba(0,0,0,0.9);
         }
         .val { color: var(--accent); }
-
         .tick { position: absolute; width: 4px; height: 22px; background: rgba(255,255,255,0.6); }
-
         #needle-wrapper {
             position: absolute; width: 100%; height: 100%;
             transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1.2);
             display: flex; align-items: center; justify-content: center; z-index: 5;
         }
-        
         #needle-main {
             position: relative; width: min(12vw, 10vh); height: 75%;
             display: flex; align-items: center; justify-content: center;
             filter: drop-shadow(0 0 8px rgba(0,0,0,1));
         }
-
         #needle-main::before {
             content: ''; position: absolute; bottom: 50%;
             border-left: min(6vw, 5vh) solid transparent; border-right: min(6vw, 5vh) solid transparent;
             border-bottom: min(35vw, 35vh) solid var(--needle-main);
         }
-
         #needle-main::after {
             content: ''; position: absolute; top: 50%;
             border-left: min(6vw, 5vh) solid transparent; border-right: min(6vw, 5vh) solid transparent;
@@ -139,7 +118,10 @@
                 avgInterval = num;
                 currentValDisplay.textContent = avgInterval;
                 localStorage.setItem('reactionInterval', avgInterval);
-                speak(`${avgInterval}초 설정 완료.`);
+                
+                // 음성 피드백: "n초입니다"만 출력
+                speak(`${avgInterval}초입니다.`);
+                
                 isWaitingVoice = false;
                 statusMsg.textContent = "설정 완료!";
                 setTimeout(() => { if(!isRunning) statusMsg.textContent = "터치하여 시작"; }, 1500);
@@ -163,11 +145,9 @@
             const visualHour = Math.floor(Math.random() * 12) + 1;
             const audioHour = Math.floor(Math.random() * 12) + 1;
             const randomColor = safeColors[Math.floor(Math.random() * safeColors.length)];
-
             document.body.style.backgroundColor = randomColor;
             needleWrapper.style.transform = `rotate(${visualHour * 30}deg)`;
             speak(`${audioHour}시`);
-
             if ("vibrate" in navigator) navigator.vibrate(80);
             const nextTime = Math.floor(Math.random() * 4001) + (avgInterval - 2) * 1000;
             timer = setTimeout(runTraining, Math.max(1200, nextTime));
