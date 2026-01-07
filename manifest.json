@@ -1,0 +1,16 @@
+json
+{
+  "name": "반응 훈련 Pro",
+  "short_name": "반응훈련",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#222222",
+  "theme_color": "#222222",
+  "icons": [
+    {
+      "src": "cdn-icons-png.flaticon.com",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
