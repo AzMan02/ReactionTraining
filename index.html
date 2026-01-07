@@ -3,44 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>반응 훈련 Pro</title>
+    <title>반응 훈련 Pro 2026</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#222222">
     <style>
         :root { --bg-color: #222; }
         body {
-            margin: 0; padding: 0; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; height: 100vh; width: 100vw;
-            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0; padding: 0; display: flex; 
             background-color: var(--bg-color); color: white;
-            transition: background-color 0.15s ease-out; touch-action: none; overflow: hidden;
+            transition: background-color 0.15s ease-out; 
+            touch-action: none; overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
         }
+
+        /* 공통 설정 */
         #info { 
-            position: absolute; top: env(safe-area-inset-top, 20px); 
-            text-align: center; z-index: 10; width: 85%;
-            font-size: clamp(0.85rem, 4vw, 1.1rem);
-            background: rgba(0,0,0,0.5); padding: 12px; border-radius: 16px;
-            backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            position: absolute; z-index: 10; 
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+            border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            text-align: center;
         }
-        #mic-status { color: #ff4757; font-weight: bold; display: block; margin-bottom: 4px; }
-        #direction-container { display: flex; align-items: center; justify-content: center; width: 100%; height: 60%; }
-        #direction-text { font-size: clamp(5rem, 50vw, 35vh); font-weight: 900; user-select: none; line-height: 1; }
+        #direction-container {
+            display: flex; align-items: center; justify-content: center;
+            width: 100vw; height: 100vh;
+        }
+        #direction-text { font-weight: 900; user-select: none; line-height: 1; }
         .val { color: #fbc531; font-weight: bold; }
+        #mic-status { font-weight: bold; display: block; margin-bottom: 4px; }
+
+        /* [세로 모드 최적화] */
+        @media (orientation: portrait) {
+            body { flex-direction: column; }
+            #info {
+                top: env(safe-area-inset-top, 20px);
+                width: 90%; left: 5%;
+                padding: 15px 0;
+                font-size: 1rem;
+            }
+            #direction-text { font-size: 70vw; } /* 너비 위주 */
+        }
+
+        /* [가로 모드 최적화] */
         @media (orientation: landscape) {
-            #info { top: auto; bottom: 5%; left: 50%; transform: translateX(-50%); width: auto; padding: 8px 30px; display: flex; gap: 15px; }
-            #direction-text { font-size: 45vh; }
+            body { flex-direction: row; }
+            #info {
+                bottom: env(safe-area-inset-bottom, 20px);
+                left: 50%; transform: translateX(-50%);
+                width: auto; min-width: 60%;
+                padding: 10px 40px;
+                font-size: 1.2rem;
+                display: flex; justify-content: space-around; align-items: center;
+            }
+            #mic-status { margin-bottom: 0; margin-right: 15px; }
+            #direction-text { font-size: 80vh; } /* 높이 위주 */
         }
     </style>
 </head>
 <body>
 
     <div id="info">
-        <span id="mic-status">🔴 화면을 터치하세요</span>
-        <div>말씀하세요: <span class="val">"시작", "정지", "5초"</span></div>
-        <div>설정: <span id="current-val" class="val">5</span>초 (<span id="range-val" class="val">3~7</span>초)</div>
+        <span id="mic-status" style="color: #ff4757;">🔴 터치하여 활성화</span>
+        <div>말씀하세요: <span class="val">시작 / 정지 / N초</span></div>
+        <div>설정: <span id="current-val" class="val">5</span>초 (<span id="range-val" class="val">3~7</span>)</div>
     </div>
 
-    <div id="direction-container"><div id="direction-text">READY</div></div>
+    <div id="direction-container">
+        <div id="direction-text">READY</div>
+    </div>
 
     <script>
         const directionDisplay = document.getElementById('direction-text');
@@ -53,12 +82,18 @@
         let timer = null;
         let recognition = null;
 
-        // 1. 음성 인식 엔진 초기화 (끊김 방지 설정)
+        const directions = [
+            { arrow: '↑', label: '위로', color: '#2ecc71' },
+            { arrow: '↓', label: '아래로', color: '#e74c3c' },
+            { arrow: '←', label: '왼쪽', color: '#3498db' },
+            { arrow: '→', label: '오른쪽', color: '#9b59b6' }
+        ];
+
+        // 음성 인식 설정 (Brave 끊김 방지 로직 포함)
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
-            recognition.continuous = true;      // 핵심: 지속적 인식
-            recognition.interimResults = false; // 중간 결과 무시 (안정성)
+            recognition.continuous = true;
             recognition.lang = 'ko-KR';
 
             recognition.onresult = (event) => {
@@ -72,22 +107,12 @@
             };
 
             recognition.onstart = () => { 
-                micStatus.textContent = "🟢 음성인식 중"; 
+                micStatus.textContent = "🟢 음성 인식 중"; 
                 micStatus.style.color = "#44bd32"; 
             };
-
-            // 끊김 방지 핵심: 인식이 종료되면 자동으로 즉시 재시작
-            recognition.onend = () => {
-                if (recognition) {
-                    console.log("인식 재시작...");
-                    try { recognition.start(); } catch(e) {}
-                }
-            };
-
-            recognition.onerror = (e) => {
-                console.error("에러 발생:", e.error);
-                if (e.error === 'network') speak("네트워크 연결을 확인하세요.");
-            };
+            
+            // 끊길 경우 자동 재시작
+            recognition.onend = () => { if (recognition) try { recognition.start(); } catch(e) {} };
         }
 
         function updateUI() {
@@ -99,23 +124,19 @@
             if (!isRunning) return;
             const visual = directions[Math.floor(Math.random() * directions.length)];
             const audio = directions[Math.floor(Math.random() * directions.length)];
+            
             directionDisplay.textContent = visual.arrow;
             document.body.style.backgroundColor = visual.color;
+
             if ("vibrate" in navigator) navigator.vibrate(100);
             window.speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(audio.label);
             u.lang = 'ko-KR'; u.rate = 1.4;
             window.speechSynthesis.speak(u);
+
             const nextTime = Math.floor(Math.random() * 4001) + (avgInterval - 2) * 1000;
             timer = setTimeout(runTraining, Math.max(1000, nextTime));
         }
-
-        const directions = [
-            { arrow: '↑', label: '위로', color: '#2ecc71' },
-            { arrow: '↓', label: '아래로', color: '#e74c3c' },
-            { arrow: '←', label: '왼쪽', color: '#3498db' },
-            { arrow: '→', label: '오른쪽', color: '#9b59b6' }
-        ];
 
         async function toggleTraining(start) {
             if (start) {
@@ -137,15 +158,10 @@
             u.lang = 'ko-KR'; window.speechSynthesis.speak(u);
         }
 
-        // Brave 터치 인식 개선
-        window.addEventListener('touchstart', (e) => {
+        // 터치 시 시작 (Brave 권한 대응)
+        window.addEventListener('touchstart', () => {
             if (recognition) {
-                try {
-                    recognition.start();
-                    speak("음성 제어를 시작합니다.");
-                } catch(err) {
-                    console.log("이미 실행 중");
-                }
+                try { recognition.start(); speak("반응 훈련 준비 완료"); } catch(e) {}
             }
         }, { once: true });
     </script>
