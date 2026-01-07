@@ -3,167 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>반응 훈련 Pro 2026</title>
+    <title>나침반 반응 훈련 Pro</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#222222">
+    <meta name="theme-color" content="#2d3436">
     <style>
-        :root { --bg-color: #222; }
+        :root { --bg-color: #2d3436; --needle-main: #ffffff; --needle-sub: #1e272e; --accent: #fbc531; }
         body {
-            margin: 0; padding: 0; display: flex; 
-            background-color: var(--bg-color); color: white;
-            transition: background-color 0.15s ease-out; 
-            touch-action: none; overflow: hidden;
-            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0; padding: 0; background-color: var(--bg-color); color: #dfe6e9;
+            transition: background-color 0.4s ease-in-out; font-family: system-ui, sans-serif;
+            width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; touch-action: none;
         }
 
-        /* 공통 설정 */
-        #info { 
-            position: absolute; z-index: 10; 
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
-            border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            text-align: center;
-        }
-        #direction-container {
+        #compass-container {
+            position: relative;
+            width: min(92vw, 92vh); height: min(92vw, 92vh);
+            border: 5px solid rgba(255,255,255,0.25); border-radius: 50%;
+            background: rgba(0,0,0,0.2);
             display: flex; align-items: center; justify-content: center;
-            width: 100vw; height: 100vh;
-        }
-        #direction-text { font-weight: 900; user-select: none; line-height: 1; }
-        .val { color: #fbc531; font-weight: bold; }
-        #mic-status { font-weight: bold; display: block; margin-bottom: 4px; }
-
-        /* [세로 모드 최적화] */
-        @media (orientation: portrait) {
-            body { flex-direction: column; }
-            #info {
-                top: env(safe-area-inset-top, 20px);
-                width: 90%; left: 5%;
-                padding: 15px 0;
-                font-size: 1rem;
-            }
-            #direction-text { font-size: 70vw; } /* 너비 위주 */
+            cursor: pointer;
         }
 
-        /* [가로 모드 최적화] */
-        @media (orientation: landscape) {
-            body { flex-direction: row; }
-            #info {
-                bottom: env(safe-area-inset-bottom, 20px);
-                left: 50%; transform: translateX(-50%);
-                width: auto; min-width: 60%;
-                padding: 10px 40px;
-                font-size: 1.2rem;
-                display: flex; justify-content: space-around; align-items: center;
-            }
-            #mic-status { margin-bottom: 0; margin-right: 15px; }
-            #direction-text { font-size: 80vh; } /* 높이 위주 */
+        /* [가시성 강화] 총 운동 시간: 외곽선과 그림자 추가 */
+        #total-timer {
+            position: absolute;
+            font-size: min(55vw, 55vh);
+            font-weight: 900;
+            /* 투명도를 약간 높이고 외곽선 효과 추가 */
+            color: rgba(255, 255, 255, 0.12); 
+            -webkit-text-stroke: 1px rgba(255, 255, 255, 0.05);
+            filter: drop-shadow(0 0 15px rgba(0,0,0,0.2));
+            z-index: 0;
+            pointer-events: none;
+            letter-spacing: -5px;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #inner-info {
+            position: absolute; bottom: 12%; width: 85%; text-align: center; z-index: 1; 
+            pointer-events: none; transition: opacity 0.3s ease;
+        }
+
+        #status-msg { 
+            font-size: clamp(1.2rem, 6vw, 2.2rem); font-weight: 900; margin-bottom: 5px; 
+            color: #ffffff; text-shadow: 2px 2px 10px rgba(0,0,0,0.9);
+        }
+        
+        #setting-display { 
+            font-size: clamp(0.9rem, 4vw, 1.5rem); color: #ffffff; 
+            font-weight: bold; letter-spacing: 1px; text-shadow: 1px 1px 5px rgba(0,0,0,0.9);
+        }
+        .val { color: var(--accent); }
+
+        .tick { position: absolute; width: 4px; height: 22px; background: rgba(255,255,255,0.6); }
+
+        #needle-wrapper {
+            position: absolute; width: 100%; height: 100%;
+            transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1.2);
+            display: flex; align-items: center; justify-content: center; z-index: 5;
+        }
+        
+        #needle-main {
+            position: relative; width: min(12vw, 10vh); height: 75%;
+            display: flex; align-items: center; justify-content: center;
+            filter: drop-shadow(0 0 8px rgba(0,0,0,1));
+        }
+
+        #needle-main::before {
+            content: ''; position: absolute; bottom: 50%;
+            border-left: min(6vw, 5vh) solid transparent; border-right: min(6vw, 5vh) solid transparent;
+            border-bottom: min(35vw, 35vh) solid var(--needle-main);
+        }
+
+        #needle-main::after {
+            content: ''; position: absolute; top: 50%;
+            border-left: min(6vw, 5vh) solid transparent; border-right: min(6vw, 5vh) solid transparent;
+            border-top: min(12vw, 12vh) solid var(--needle-sub);
         }
     </style>
 </head>
 <body>
 
-    <div id="info">
-        <span id="mic-status" style="color: #ff4757;">🔴 터치하여 활성화</span>
-        <div>말씀하세요: <span class="val">시작 / 정지 / N초</span></div>
-        <div>설정: <span id="current-val" class="val">5</span>초 (<span id="range-val" class="val">3~7</span>)</div>
-    </div>
-
-    <div id="direction-container">
-        <div id="direction-text">READY</div>
+    <div id="compass-container">
+        <div id="total-timer">0</div>
+        <div id="inner-info">
+            <div id="status-msg">터치하여 시작</div>
+            <div id="setting-display">인터벌: <span id="current-val" class="val">5</span>&plusmn;2</div>
+        </div>
+        <div id="needle-wrapper"><div id="needle-main"></div></div>
     </div>
 
     <script>
-        const directionDisplay = document.getElementById('direction-text');
+        const compassContainer = document.getElementById('compass-container');
+        const needleWrapper = document.getElementById('needle-wrapper');
         const currentValDisplay = document.getElementById('current-val');
-        const rangeValDisplay = document.getElementById('range-val');
-        const micStatus = document.getElementById('mic-status');
+        const statusMsg = document.getElementById('status-msg');
+        const innerInfo = document.getElementById('inner-info');
+        const totalTimerDisplay = document.getElementById('total-timer');
         
         let isRunning = false;
+        let isInitial = true;
+        let isWaitingVoice = false;
         let avgInterval = 5;
         let timer = null;
-        let recognition = null;
+        let totalSeconds = 0;
+        let exerciseTimer = null;
 
-        const directions = [
-            { arrow: '↑', label: '위로', color: '#2ecc71' },
-            { arrow: '↓', label: '아래로', color: '#e74c3c' },
-            { arrow: '←', label: '왼쪽', color: '#3498db' },
-            { arrow: '→', label: '오른쪽', color: '#9b59b6' }
-        ];
+        const safeColors = ['#0984e3', '#6c5ce7', '#00cec9', '#ffe119', '#e84393', '#2d3436', '#fdcb6e', '#000080', '#8e44ad', '#2980b9', '#f39c12', '#7f8c8d'];
 
-        // 음성 인식 설정 (Brave 끊김 방지 로직 포함)
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.lang = 'ko-KR';
-
-            recognition.onresult = (event) => {
-                const cmd = event.results[event.results.length - 1].transcript.trim();
-                if (cmd.includes("시작")) { if (!isRunning) toggleTraining(true); }
-                else if (cmd.includes("정지") || cmd.includes("멈춰")) { if (isRunning) toggleTraining(false); }
-                else if (cmd.includes("초")) {
-                    const num = parseInt(cmd.replace(/[^0-9]/g, ""));
-                    if (num >= 3) { avgInterval = num; updateUI(); speak(`${avgInterval}초 설정`); }
-                }
-            };
-
-            recognition.onstart = () => { 
-                micStatus.textContent = "🟢 음성 인식 중"; 
-                micStatus.style.color = "#44bd32"; 
-            };
-            
-            // 끊길 경우 자동 재시작
-            recognition.onend = () => { if (recognition) try { recognition.start(); } catch(e) {} };
-        }
-
-        function updateUI() {
-            currentValDisplay.textContent = avgInterval;
-            rangeValDisplay.textContent = `${avgInterval - 2}~${avgInterval + 2}`;
-        }
-
-        function runTraining() {
-            if (!isRunning) return;
-            const visual = directions[Math.floor(Math.random() * directions.length)];
-            const audio = directions[Math.floor(Math.random() * directions.length)];
-            
-            directionDisplay.textContent = visual.arrow;
-            document.body.style.backgroundColor = visual.color;
-
-            if ("vibrate" in navigator) navigator.vibrate(100);
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(audio.label);
-            u.lang = 'ko-KR'; u.rate = 1.4;
-            window.speechSynthesis.speak(u);
-
-            const nextTime = Math.floor(Math.random() * 4001) + (avgInterval - 2) * 1000;
-            timer = setTimeout(runTraining, Math.max(1000, nextTime));
-        }
-
-        async function toggleTraining(start) {
-            if (start) {
-                isRunning = true;
-                if ('wakeLock' in navigator) try { await navigator.wakeLock.request('screen'); } catch(e){}
-                runTraining();
-            } else {
-                isRunning = false;
-                clearTimeout(timer);
-                window.speechSynthesis.cancel();
-                directionDisplay.textContent = 'READY';
-                document.body.style.backgroundColor = '#222';
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('reactionInterval');
+            if (saved) {
+                avgInterval = parseInt(saved);
+                currentValDisplay.textContent = avgInterval;
             }
+        });
+
+        const size = Math.min(window.innerWidth * 0.92, window.innerHeight * 0.92);
+        for (let i = 0; i < 12; i++) {
+            const tick = document.createElement('div');
+            tick.className = 'tick';
+            tick.style.transform = `rotate(${i * 30}deg) translateY(-${size / 2 - 15}px)`;
+            compassContainer.appendChild(tick);
         }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition ? new SpeechRecognition() : null;
+        if(recognition) recognition.lang = 'ko-KR';
+
+        recognition.onresult = (event) => {
+            const cmd = event.results[event.results.length - 1].transcript;
+            const num = parseInt(cmd.replace(/[^0-9]/g, ""));
+            if (num >= 3) {
+                avgInterval = num;
+                currentValDisplay.textContent = avgInterval;
+                localStorage.setItem('reactionInterval', avgInterval);
+                speak(`${avgInterval}초 설정 완료.`);
+                isWaitingVoice = false;
+                statusMsg.textContent = "설정 완료!";
+                setTimeout(() => { if(!isRunning) statusMsg.textContent = "터치하여 시작"; }, 1500);
+            }
+        };
 
         function speak(t) {
             window.speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(t);
-            u.lang = 'ko-KR'; window.speechSynthesis.speak(u);
+            u.lang = 'ko-KR'; u.rate = 1.4;
+            window.speechSynthesis.speak(u);
         }
 
-        // 터치 시 시작 (Brave 권한 대응)
-        window.addEventListener('touchstart', () => {
-            if (recognition) {
-                try { recognition.start(); speak("반응 훈련 준비 완료"); } catch(e) {}
+        function updateExerciseTimer() {
+            totalSeconds++;
+            totalTimerDisplay.textContent = totalSeconds;
+        }
+
+        function runTraining() {
+            if (!isRunning) return;
+            const visualHour = Math.floor(Math.random() * 12) + 1;
+            const audioHour = Math.floor(Math.random() * 12) + 1;
+            const randomColor = safeColors[Math.floor(Math.random() * safeColors.length)];
+
+            document.body.style.backgroundColor = randomColor;
+            needleWrapper.style.transform = `rotate(${visualHour * 30}deg)`;
+            speak(`${audioHour}시`);
+
+            if ("vibrate" in navigator) navigator.vibrate(80);
+            const nextTime = Math.floor(Math.random() * 4001) + (avgInterval - 2) * 1000;
+            timer = setTimeout(runTraining, Math.max(1200, nextTime));
+        }
+
+        compassContainer.addEventListener('click', () => {
+            if (isInitial) {
+                speak("시간을 입력하세요.");
+                if(recognition) try { recognition.start(); } catch(e){}
+                isInitial = false; isWaitingVoice = true;
+                statusMsg.textContent = "시간 입력";
+            } else if (isWaitingVoice) {
+                if(recognition) try { recognition.abort(); } catch(e){}
+                isWaitingVoice = false;
+                startTraining();
+            } else {
+                if (isRunning) stopTraining();
+                else startTraining();
             }
-        }, { once: true });
+        });
+
+        function startTraining() {
+            isRunning = true;
+            totalSeconds = 0;
+            totalTimerDisplay.textContent = "0";
+            innerInfo.style.opacity = "0";
+            exerciseTimer = setInterval(updateExerciseTimer, 1000);
+            runTraining();
+        }
+
+        function stopTraining() {
+            isRunning = false;
+            clearInterval(exerciseTimer);
+            clearTimeout(timer);
+            innerInfo.style.opacity = "1";
+            document.body.style.backgroundColor = '#2d3436';
+            needleWrapper.style.transform = 'rotate(0deg)';
+            statusMsg.textContent = "정지됨";
+            window.speechSynthesis.cancel();
+            setTimeout(() => { if(!isRunning) statusMsg.textContent = "터치하여 시작"; }, 1500);
+        }
     </script>
 </body>
 </html>
