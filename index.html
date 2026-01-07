@@ -6,42 +6,57 @@ html
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>반응 훈련 Pro (Voice Control)</title>
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#222">
     <style>
         :root { --bg-color: #222; }
         body {
             margin: 0; display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            height: 100vh; font-family: system-ui, -apple-system, sans-serif;
+            height: 100vh; width: 100vw;
+            font-family: system-ui, -apple-system, sans-serif;
             background-color: var(--bg-color); color: white;
-            transition: background-color 0.15s ease-out; touch-action: manipulation;
+            transition: background-color 0.15s ease-out; 
+            touch-action: manipulation; overflow: hidden;
         }
-        #info { position: absolute; top: 10%; text-align: center; line-height: 1.6; z-index: 10; }
+        #info { 
+            position: absolute; top: 5%; text-align: center; 
+            line-height: 1.4; z-index: 10; width: 90%;
+            font-size: clamp(0.9rem, 2vw, 1.2rem);
+            background: rgba(0,0,0,0.3); padding: 10px; border-radius: 12px;
+        }
         #mic-status { color: #ff4757; font-weight: bold; margin-bottom: 5px; }
-        #direction-text { font-size: 13rem; font-weight: 900; user-select: none; }
+        
+        /* 가로/세로 대응 텍스트 크기 */
+        #direction-text { 
+            font-size: clamp(10rem, 40vw, 25rem); 
+            font-weight: 900; user-select: none;
+            line-height: 1;
+        }
         .val { color: #fbc531; font-weight: bold; }
+        
+        /* 가로 모드일 때 info 위치 조정 */
+        @media (orientation: landscape) {
+            #info { top: auto; bottom: 5%; width: auto; padding: 5px 20px; }
+            #direction-text { font-size: clamp(8rem, 35vh, 20rem); }
+        }
     </style>
 </head>
 <body>
 
     <div id="info">
-        <div id="mic-status">🔴 화면을 터치하여 마이크 활성화</div>
-        <div>"시작", "정지", "N초" (예: 5초)</div>
-        <div>현재 설정: <span id="current-val" class="val">5</span>초 (범위: <span id="range-val" class="val">3~7</span>초)</div>
+        <div id="mic-status">🔴 화면을 터치하여 권한 허용</div>
+        <div>"시작", "정지", "5초"</div>
+        <div>현재: <span id="current-val" class="val">5</span>초 (범위: <span id="range-val" class="val">3~7</span>초)</div>
     </div>
 
     <div id="direction-text">READY</div>
 
     <script>
-	javascript
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(reg => {
-            console.log('서비스 워커 등록 성공!');
-        }).catch(err => {
-            console.log('등록 실패:', err);
-        });
-    });
-}
+        // 서비스 워커 등록
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+
         const directionDisplay = document.getElementById('direction-text');
         const currentValDisplay = document.getElementById('current-val');
         const rangeValDisplay = document.getElementById('range-val');
@@ -49,7 +64,7 @@ if ('serviceWorker' in navigator) {
         
         let isRunning = false;
         let timer = null;
-        let avgInterval = 5; // 기본값 5초
+        let avgInterval = 5;
         let wakeLock = null;
 
         const directions = [
@@ -59,73 +74,71 @@ if ('serviceWorker' in navigator) {
             { arrow: '→', label: '오른쪽', color: '#9b59b6' }
         ];
 
-        // 1. 음성 인식 설정 (Web Speech API)
+        // 음성 인식 설정
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.lang = 'ko-KR';
+        let recognition = null;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.lang = 'ko-KR';
+            recognition.interimResults = false;
 
-        recognition.onresult = (event) => {
-            const cmd = event.results[event.results.length - 1].transcript.trim();
-            if (cmd.includes("시작")) {
-                if (!isRunning) toggleTraining(true);
-            } else if (cmd.includes("정지") || cmd.includes("멈춰")) {
-                if (isRunning) toggleTraining(false);
-            } else if (cmd.includes("초")) {
-                const num = parseInt(cmd.replace(/[^0-9]/g, ""));
-                if (num >= 3) { // 앞뒤 2초 확보를 위해 최소 3초 권장
-                    avgInterval = num;
-                    updateUI();
-                    speak(`평균 ${avgInterval}초로 설정되었습니다.`);
+            recognition.onresult = (event) => {
+                const cmd = event.results[event.results.length - 1][0].transcript.trim();
+                if (cmd.includes("시작")) { if (!isRunning) toggleTraining(true); }
+                else if (cmd.includes("정지") || cmd.includes("멈춰")) { if (isRunning) toggleTraining(false); }
+                else if (cmd.includes("초")) {
+                    const num = parseInt(cmd.replace(/[^0-9]/g, ""));
+                    if (num >= 3) { avgInterval = num; updateUI(); speak(`${avgInterval}초 설정 완료`); }
                 }
-            }
-        };
+            };
 
-        recognition.onstart = () => { micStatus.textContent = "🟢 음성 인식 중..."; micStatus.style.color = "#44bd32"; };
-        recognition.onend = () => { recognition.start(); }; // 상시 대기
+            recognition.onstart = () => { 
+                micStatus.textContent = "🟢 Brave 음성인식 활성"; 
+                micStatus.style.color = "#44bd32"; 
+            };
+            recognition.onend = () => { if(isRunning || micStatus.textContent.includes("활성")) recognition.start(); };
+            recognition.onerror = (e) => { 
+                if(e.error === 'not-allowed') alert("Brave 설정에서 마이크 권한을 허용해주세요.");
+            };
+        }
 
         function updateUI() {
             currentValDisplay.textContent = avgInterval;
             rangeValDisplay.textContent = `${avgInterval - 2}~${avgInterval + 2}`;
         }
 
-        // 2. 핵심 로직: 앞뒤 2초(총 4초) 랜덤 간격
         function runTraining() {
             if (!isRunning) return;
-
             const visual = directions[Math.floor(Math.random() * directions.length)];
             const audio = directions[Math.floor(Math.random() * directions.length)];
-
+            
             directionDisplay.textContent = visual.arrow;
             document.body.style.backgroundColor = visual.color;
 
-            if ("vibrate" in navigator) navigator.vibrate(200);
-            
-            // 음성 중첩 방지
+            if ("vibrate" in navigator) navigator.vibrate(150);
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(audio.label);
             utterance.lang = 'ko-KR';
-            utterance.rate = 1.4;
+            utterance.rate = 1.3;
             window.speechSynthesis.speak(utterance);
 
-            // 랜덤 계산: (평균 - 2000ms) ~ (평균 + 2000ms)
             const min = (avgInterval - 2) * 1000;
             const max = (avgInterval + 2) * 1000;
             const nextTime = Math.floor(Math.random() * (max - min + 1)) + min;
-
-            timer = setTimeout(runTraining, Math.max(1000, nextTime)); // 최소 1초 안전장치
+            timer = setTimeout(runTraining, Math.max(1200, nextTime));
         }
 
         async function toggleTraining(start) {
             if (start) {
                 isRunning = true;
-                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+                if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} }
                 runTraining();
             } else {
                 isRunning = false;
                 clearTimeout(timer);
                 window.speechSynthesis.cancel();
-                if (wakeLock) wakeLock.release();
+                if (wakeLock) { wakeLock.release(); wakeLock = null; }
                 directionDisplay.textContent = 'READY';
                 document.body.style.backgroundColor = '#222';
             }
@@ -137,9 +150,12 @@ if ('serviceWorker' in navigator) {
             window.speechSynthesis.speak(u);
         }
 
-        window.addEventListener('click', () => {
-            recognition.start();
-            speak("음성 제어를 시작합니다.");
+        // Brave 및 S25 터치 대응
+        window.addEventListener('touchstart', () => {
+            if (recognition && micStatus.textContent.includes("🔴")) {
+                recognition.start();
+                speak("음성 제어가 시작되었습니다.");
+            }
         }, { once: true });
     </script>
 </body>
